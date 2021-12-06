@@ -18,7 +18,6 @@ segmenation_erode_params = [(3, 11), (11, 3), (25, 1), (1, 25)]
 def findBoundingBox(image, segmenation_blur_params, segmenation_erode_params):
     boxes = []
     cropped = preprocessing(image)
-    # gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     # erase red color from image
     b, g, gray = cv2.split(cropped)
     for blur_param in segmenation_blur_params:
@@ -35,26 +34,70 @@ def findBoundingBox(image, segmenation_blur_params, segmenation_erode_params):
                 if cv2.contourArea(cnt) > 200:
                     box = cv2.boundingRect(cnt)
                     x, y, w, h = box
+                    if (w * h) > (image.shape[0] * image.shape[1]) / 50:
+                        continue
+                    if (w * h) < 800:
+                        continue
+                    if w < h:
+                        continue
+                    if w > 7 * h or h > 7 * w:
+                        continue;
                     if w > 3 * h or h > 3 * w:
                         boxes += [box]
     boxes = list(dict.fromkeys(boxes))
     return boxes
 
 
-# TODO: Finally show the image
-
+# Finally show the image
 boxes = findBoundingBox(image, segmenation_blur_params, segmenation_erode_params)
 cropped = preprocessing(image)
 for box in boxes:
     x, y, w, h = box
     if h < w:
         cv2.rectangle(cropped, (x, y), (x + w, y + h), (0, 255, 0), 1)
-cv2.imshow("final image", cropped)
+cv2.imshow("", cropped)
 cv2.waitKey(0)
-len(boxes)
+print(len(boxes))
+
 
 # TODO: Remove non-text boxes
 # Delete similar boxes
+# Remove boxes have significant ratio between background and foreground
+
+def trim_boxes(boxes):
+    to_be_delete = [False] * len(boxes)
+    for i, box1 in enumerate(boxes):
+        x, y, w, h = box1
+        for j, box2 in enumerate(boxes):
+            if i >= j:
+                continue
+            x2, y2, w2, h2 = box2
+            if (abs(x - x2) + abs(y - y2)) < 20 and (abs(w - w2) + abs(h - h2)) < 20:
+                to_be_delete[j] = True
+    new_boxes = []
+    for i in range(0, len(boxes)):
+        if to_be_delete[i] == False:
+            new_boxes.append(boxes[i])
+    boxes = new_boxes
+    return boxes
+
+
+def remove_non_text(boxes, image):
+    to_be_delete = [False] * len(boxes)
+    for i, box1 in enumerate(boxes):
+        crop_box = image[box1[1]: box1[1] + box1[3], box1[0]: box1[0] + box1[2]]
+        crop_box = cv2.cvtColor(crop_box, cv2.COLOR_BGR2GRAY)
+        ret, crop_box = cv2.threshold(crop_box, 125, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        ratio = np.sum(crop_box > 125) / (crop_box.shape[0] * crop_box.shape[1])
+        if ratio < 0.15 or ratio > 0.55:
+            to_be_delete[i] = True
+    new_boxes = []
+    for i in range(0, len(boxes)):
+        if not to_be_delete[i]:
+            new_boxes.append(boxes[i])
+    boxes = new_boxes
+    return boxes
+
 
 to_be_delete = [False] * len(boxes)
 for i, box1 in enumerate(boxes):
@@ -192,4 +235,3 @@ def generate_feature_vector(image):
     for side in dpf:
         result = result + side
     return result
-

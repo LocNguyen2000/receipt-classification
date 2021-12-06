@@ -12,4 +12,4 @@ print(len(df))
 ridge_path = highland_dir + "ridge_highland.sav"
 print(ridge_path)
 #
-# loaded_model = pickle.load(open(ridge_path, 'rb'))
+loaded_model = pickle.load(open(ridge_path, 'rb'))
